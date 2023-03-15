@@ -1,8 +1,4 @@
-using MediatR;
 using Microsoft.Extensions.Logging;
-using Showcast.Core.Repositories.User;
-using Showcast.Core.Services.Http;
-using Showcast.Infrastructure.Messaging.Authentication.Commands;
 using Telegram.Bot;
 using Telegram.Bot.Exceptions;
 using Telegram.Bot.Polling;
@@ -11,23 +7,19 @@ using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.InlineQueryResults;
 using Telegram.Bot.Types.InputFiles;
 using Telegram.Bot.Types.ReplyMarkups;
-using File = Telegram.Bot.Types.File;
 
-namespace Showcast.TelegramBot.Services.Telegram;
+namespace Delta.Application.Services.Telegram;
 
+// eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIyNzI3MzMzIiwiYXVkIjoiMjoxIiwibmJmIjoxNjc3NTE2MzI5LCJtc2giOiIzM2JhZjdmMC03MDA2LTRmZTctOWEwMy0wNWZjMWRkMjg1MzQiLCJhdGgiOiJzdWRpciIsImlzcyI6Imh0dHBzOlwvXC9zY2hvb2wubW9zLnJ1IiwicmxzIjoiezE6WzE4MzoxNjpbXSwzMDo0OltdLDQwOjE6W10sMjA6MjpbXV19IiwiZXhwIjoxNjc4MzgwMzI5LCJpYXQiOjE2Nzc1MTYzMjksImp0aSI6ImUzOTI5MDE1LWZjODUtNGEwNy05MjkwLTE1ZmM4NWZhMDczNyIsInNzbyI6IjhlMTFiYjNhLTgzNDAtNDZlYS04ODAwLTgyZmQyMTU2NGQ5OSJ9.iN2m5vGAGrvt33QYlsOtsyfyszR6vuk4mbFh_P56zrfKdCyiHowj68AwvPbeaIua9h8vIY7VvlxA5zSChJVpvfe-tHH7ikBFg1OJdH-8VU8jHG_QexNn8ieBOVrqwvOqsMKYV-4y7KFW7KAeeE8nCaJu6aQuC2dzp2IOe0IErA4hII2mrt1ML3r2tSUTtf0qsU7JJss57jjMamBL7_icYFHc3HWtK4H5rk-xVIYRA3KgfUZy9co4kdETXb8-wYguaeKJdsTdrCAF-K6MGYbLCrNRP9Fb6xT8-kSSi8k1Q25fE7ZRSj_MFotrk7PNmIZdlIl6ZpoqrXVV8_Umt3LQ3g
 public class UpdateHandler : IUpdateHandler
 {
     private readonly ITelegramBotClient _botClient;
     private readonly ILogger<UpdateHandler> _logger;
-    private readonly IMovieService _movieService;
-    private readonly IUserRepository _userRepository;
 
-    public UpdateHandler(ITelegramBotClient botClient, ILogger<UpdateHandler> logger, IMovieService movieService, IUserRepository userRepository)
+    public UpdateHandler(ITelegramBotClient botClient, ILogger<UpdateHandler> logger)
     {
         _botClient = botClient;
         _logger = logger;
-        _movieService = movieService;
-        _userRepository = userRepository;
     }
 
     public async Task HandleUpdateAsync(ITelegramBotClient _, Update update, CancellationToken cancellationToken)
@@ -65,18 +57,47 @@ public class UpdateHandler : IUpdateHandler
             "/request" => RequestContactAndLocation(_botClient, message, cancellationToken),
             "/inline_mode" => StartInlineQuery(_botClient, message, cancellationToken),
             "/throw" => FailingHandler(_botClient, message, cancellationToken),
-            "/relative" => SendRelativeMovies(_botClient, message, cancellationToken),
-            "/recommendations" => SendRecommendations(_botClient, message, cancellationToken),
-            "/login" => SendLoginMessage(_botClient, message, cancellationToken),
-            "/like" => AddLikedMovies(_botClient, message, cancellationToken),
-            "/likes" => SendLikedMovies(_botClient, message, cancellationToken),
-            "/info" => SendMovieInfo(_botClient, message, cancellationToken),
+            
+            
+            "/login" => SendLogin(_botClient, message, cancellationToken),
+            
             "/stream" => SendStream(_botClient, message, cancellationToken),
             _ => Usage(_botClient, message, cancellationToken)
         };
+        
         var sentMessage = await action;
         _logger.LogInformation("The message was sent with id: {SentMessageId}", sentMessage.MessageId);
 
+        async Task<Message> SendLogin(ITelegramBotClient botClient, Message message,
+            CancellationToken cancellationToken)
+        {
+            Task.Delay(1000);
+            
+            await botClient.SendChatActionAsync(
+                chatId: message.Chat.Id,
+                chatAction: ChatAction.Typing,
+                cancellationToken: cancellationToken);
+
+            // Simulate longer running task
+            await Task.Delay(500, cancellationToken);
+
+            InlineKeyboardMarkup inlineKeyboard = new(
+                new[]
+                {
+                    // first row
+                    new []
+                    {
+                        InlineKeyboardButton.WithCallbackData("Да", "yes"),
+                        InlineKeyboardButton.WithCallbackData("Нет", "no"),
+                    },
+                });
+            
+            return await botClient.SendTextMessageAsync(
+                chatId: message.Chat.Id, 
+                replyMarkup: inlineKeyboard,
+                text: "Отлично, тебя зовут Федор, верно?", cancellationToken: cancellationToken);
+        }
+        
         async Task<Message> SendStream(ITelegramBotClient botClient, Message message,
             CancellationToken cancellationToken)
         {
@@ -92,133 +113,7 @@ public class UpdateHandler : IUpdateHandler
                 supportsStreaming: true,
                 cancellationToken: cancellationToken);
         }
-        
-        async Task<Message> SendLikedMovies(ITelegramBotClient botClient, Message message,
-            CancellationToken cancellationToken)
-        {
-            var user = await _userRepository.FindAsync(user => user.TelegramId == message.From.Id);
-            
-            return await botClient.SendTextMessageAsync(
-                chatId: message.Chat.Id,
-                text: string.Join(", ", user.LikedMovies),
-                cancellationToken: cancellationToken);
-        }
 
-    async Task<Message> SendRecommendations(ITelegramBotClient botClient, Message message,
-            CancellationToken cancellationToken)
-        {
-            var user = await _userRepository.FindAsync(user => user.TelegramId == message.From.Id);
-            var recommendations = _movieService.GetRecommendations(user);
-
-            await foreach (var relative in recommendations)
-            {
-                var caption =
-                    $"***{relative.Title}***, ***{relative.Rating} / 10*** \n \n" +
-                    $"{relative.Plot}       \n" +
-                    "\n" +
-                    $"***Genres***: {relative.Genre} \n \n" +
-                    $"***Released in {relative.Year}***";
-
-                await botClient.SendPhotoAsync(chatId: message.Chat.Id,
-                    photo: new InputOnlineFile(new Uri(relative.PosterAddress)),
-                    caption: caption,
-                    ParseMode.Markdown,
-                    cancellationToken: cancellationToken);
-            }
-            
-            return await botClient.SendTextMessageAsync(
-                chatId: message.Chat.Id,
-                text: $"А вот и ваши рекомендации",
-                cancellationToken: cancellationToken);
-        }
-        
-        async Task<Message> AddLikedMovies(ITelegramBotClient botClient, Message message,
-            CancellationToken cancellationToken)
-        {
-            var text = string.Join(' ', message.Text.Split(' ')[1..]);
-
-            var titles = text.Split(',');
-            
-            var user = await _userRepository.FindAsync(user => user.TelegramId == message.From.Id);
-            
-            user.LikedMovies.AddRange(titles);
-            
-            await _userRepository.UpdateAsync(user, cancellationToken);
-            
-            return await botClient.SendTextMessageAsync(
-                chatId: message.Chat.Id,
-                text: $"Эти фильмы были добавлены в понравившиеся",
-                cancellationToken: cancellationToken);
-        }
-        
-        async Task<Message> SendMovieInfo(ITelegramBotClient botClient, Message message,
-            CancellationToken cancellationToken)
-        {
-            var title = string.Join(" ", message.Text.Split(' ')[1..]);
-
-            var movie = await _movieService.GetMovie(title);
-
-            var caption =
-                $"***{movie.Title}***, ***{movie.Rating} / 10*** \n \n" +
-                $"`{movie.Plot}`       \n" +
-                "\n" +
-                $"***Genres:*** {movie.Genre} \n \n" +
-                $"***BoxOffice:*** {movie.BoxOffice} \n" +
-                $"***Director:*** {movie.Director} \n" +
-                $"***Actors:*** {movie.Actors} \n" +
-                $"***Released in {movie.Year}*** \n";
-
-            return await botClient.SendPhotoAsync(chatId: message.Chat.Id,
-                photo: new InputOnlineFile(new Uri(movie.PosterAddress)),
-                caption: caption,
-                ParseMode.Markdown,
-                cancellationToken: cancellationToken);
-        }
-
-        async Task<Message> SendLoginMessage(ITelegramBotClient botClient, Message message,
-            CancellationToken cancellationToken)
-        {
-            var payload = message.Text.Split(' ')[1..];
-            
-            var user = await _userRepository.SignUpAsync(new(
-                payload[0], payload[1], message.From!.Id.ToString(), message.From.Id));
-            
-            
-            return await botClient.SendTextMessageAsync(
-                chatId: message.Chat.Id,
-                text: $"Вы вошли в аккаунт! Теперь вы можете добавить понравившиеся фильмы, чтобы бот мог вывести персональные рекомендации. Ваш Id: {user.Id}",
-                cancellationToken: cancellationToken);
-        }
-        
-        async Task<Message> SendRelativeMovies(ITelegramBotClient botClient, Message message,
-            CancellationToken cancellationToken)
-        {
-            var title = string.Join(" ", message.Text.Split(' ')[1..]);
-
-            var relatives = _movieService.GetRelative(title);
-
-            await foreach (var relative in relatives)
-            {
-                var caption =
-                    $"***{relative.Title}***, ***{relative.Rating} / 10*** \n \n" +
-                    $"{relative.Plot}       \n" +
-                    "\n" +
-                    $"***Genres***: {relative.Genre} \n \n" +
-                    $"***Released in {relative.Year}***";
-
-                await botClient.SendPhotoAsync(chatId: message.Chat.Id,
-                    photo: new InputOnlineFile(new Uri(relative.PosterAddress)),
-                    caption: caption,
-                    ParseMode.Markdown,
-                    cancellationToken: cancellationToken);
-            }
-
-            return await botClient.SendTextMessageAsync(
-                chatId: message.Chat.Id,
-                text: "That's all!",
-                cancellationToken: cancellationToken);
-        }
-        
         // Send inline keyboard
         // You can process responses in BotOnCallbackQueryReceived handler
         static async Task<Message> SendInlineKeyboard(ITelegramBotClient botClient, Message message, CancellationToken cancellationToken)
@@ -345,13 +240,72 @@ public class UpdateHandler : IUpdateHandler
 
         await _botClient.AnswerCallbackQueryAsync(
             callbackQueryId: callbackQuery.Id,
-            text: $"Received {callbackQuery.Data}",
+            // text: $"Received {callbackQuery.Data}",
             cancellationToken: cancellationToken);
 
-        await _botClient.SendTextMessageAsync(
-            chatId: callbackQuery.Message!.Chat.Id,
-            text: $"Received {callbackQuery.Data}",
-            cancellationToken: cancellationToken);
+        var action = callbackQuery.Data switch
+        {
+            "yes" => HandleYesAnswer(_botClient, callbackQuery.Message!.Chat.Id, cancellationToken),
+            "no" => _botClient.SendTextMessageAsync(
+                chatId: callbackQuery.Message!.Chat.Id,
+                text: $"Тогда введи правильные данные для входа",
+                cancellationToken: cancellationToken),
+            
+            "technology" => HandleTechnologyAnswer(_botClient, callbackQuery.Message!.Chat.Id, cancellationToken),
+            
+            _ => _botClient.SendTextMessageAsync(
+                chatId: callbackQuery.Message!.Chat.Id,
+                text: $"Incorrect input",
+                cancellationToken: cancellationToken)
+        };
+        
+        var sentMessage = await action;
+
+        static async Task<Message> HandleTechnologyAnswer(ITelegramBotClient botClient, long chatId, CancellationToken cancellationToken)
+        {
+            await botClient.SendChatActionAsync(
+                chatId: chatId,
+                chatAction: ChatAction.Typing,
+                cancellationToken: cancellationToken);
+
+            // Simulate longer running task
+            await Task.Delay(500, cancellationToken);
+
+            return await botClient.SendTextMessageAsync(
+                chatId: chatId,
+                text: $"Ты выбрал технологический профиль, теперь я буду уведомлять тебя об олимпиадах, которые тебе подходят. " +
+                      $" Чтобы узнать больше о функционале, используй /help",
+                cancellationToken: cancellationToken);
+        }
+        
+        static async Task<Message> HandleYesAnswer(ITelegramBotClient botClient, long chatId, CancellationToken cancellationToken)
+        {
+            await botClient.SendChatActionAsync(
+                chatId: chatId,
+                chatAction: ChatAction.Typing,
+                cancellationToken: cancellationToken);
+
+            // Simulate longer running task
+            await Task.Delay(500, cancellationToken);
+
+            InlineKeyboardMarkup inlineKeyboard = new(
+                new[]
+                {
+                    // first row
+                    new []
+                    {
+                        InlineKeyboardButton.WithCallbackData("Технологический (математика, информатика, физика)", "technology"),
+                        InlineKeyboardButton.WithCallbackData("Социально-экономический (экономика, география, обществознание)", "economical"),
+                        InlineKeyboardButton.WithCallbackData("Химико-биологический (химия, биология, нанотехнологии)", "chemistry"), 
+                    }
+                });
+
+            return await botClient.SendTextMessageAsync(
+                chatId: chatId,
+                text: $"Супер! Теперь ты можешь пользоваться ботом. Выбери свой профиль, который тебе интересен",
+                replyMarkup: inlineKeyboard,
+                cancellationToken: cancellationToken);
+        }
     }
 
     #region Inline Mode

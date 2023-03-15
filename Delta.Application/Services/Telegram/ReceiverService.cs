@@ -1,8 +1,8 @@
+using Delta.Application.Services.Telegram.Abstract;
 using Microsoft.Extensions.Logging;
-using Showcast.TelegramBot.Services.Telegram.Abstract;
 using Telegram.Bot;
 
-namespace Showcast.TelegramBot.Services.Telegram;
+namespace Delta.Application.Services.Telegram;
 
 // Compose Receiver and UpdateHandler implementation
 public class ReceiverService : ReceiverServiceBase<UpdateHandler>

@@ -1,17 +1,17 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using Showcast.Core.Services.Http;
-using Showcast.Infrastructure.Services.Http;
+﻿using Delta.Dnevnik;
+using Microsoft.Extensions.DependencyInjection;
 
-namespace Showcast.TelegramBot.Extensions;
+namespace Delta.Application.Extensions;
 
 public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddMovieService(this IServiceCollection collection)
     {
-        collection.AddHttpClient<IRecommendationService, RecommendationService>();
-        collection.AddHttpClient<IMovieDbService, MovieDbService>();
-        collection.AddScoped<IMovieService, MovieService>();
-        
+        // collection.AddHttpClient<IRecommendationService, RecommendationService>();
+        // collection.AddHttpClient<IMovieDbService, MovieDbService>();
+        // collection.AddScoped<IMovieService, MovieService>();
+
+        collection.AddHttpClient<IDnevnikConnection, DnevnikConnection>();
         
         return collection;
     }

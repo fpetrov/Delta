@@ -3,7 +3,7 @@ using Telegram.Bot;
 using Telegram.Bot.Polling;
 using Telegram.Bot.Types.Enums;
 
-namespace Showcast.TelegramBot.Services.Telegram.Abstract;
+namespace Delta.Application.Services.Telegram.Abstract;
 
 /// <summary>
 /// An abstract class to compose Receiver Service and Update Handler classes

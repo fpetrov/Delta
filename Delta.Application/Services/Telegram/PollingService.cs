@@ -1,7 +1,7 @@
+using Delta.Application.Services.Telegram.Abstract;
 using Microsoft.Extensions.Logging;
-using Showcast.TelegramBot.Services.Telegram.Abstract;
 
-namespace Showcast.TelegramBot.Services.Telegram;
+namespace Delta.Application.Services.Telegram;
 
 // Compose Polling and ReceiverService implementations
 public class PollingService : PollingServiceBase<ReceiverService>

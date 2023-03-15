@@ -4,6 +4,6 @@ namespace Delta.Core.Messaging.Responses.Authentication;
 
 public record AuthenticateResponse(
     int Id,
-    string Jwt,
-    RefreshToken RefreshToken
+    string Jwt
+    //RefreshToken RefreshToken
 );
