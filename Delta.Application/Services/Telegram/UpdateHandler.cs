@@ -89,7 +89,20 @@ public class UpdateHandler : IUpdateHandler
         async Task<Message> CreateOlimpiad(ITelegramBotClient botClient, Message message,
             CancellationToken cancellationToken)
         {
-            var request = new CreateOlimpiadRequest();
+            var args = messageText.Split(' ');
+            
+            if (!Enum.TryParse<OlimpiadType>(args[3], out var type))
+                return await botClient.SendTextMessageAsync(
+                    chatId: message.Chat.Id,
+                    text: "Вы ввели неправильный тип олимпиады", cancellationToken: cancellationToken);
+            
+            var request = new CreateOlimpiadRequest(args[1], args[2], type);
+
+            await _olimpiadService.Create(request, cancellationToken);
+            
+            return await botClient.SendTextMessageAsync(
+                chatId: message.Chat.Id,
+                text: "Олимпиада сохранена.", cancellationToken: cancellationToken);
         }
 
         async Task<Message> SendLogin(ITelegramBotClient botClient, Message message,
@@ -121,17 +134,17 @@ public class UpdateHandler : IUpdateHandler
             var text = $"Вот твое расписание на {request.Date.ToShortDateString()} \n\n";
             
             var lessonIter = 1;
-            for (var i = 0; i < schedule.Activities.Length; i++)
+            foreach (var activity in schedule.Activities)
             {
-                var activity = schedule.Activities[i];
-
                 if (activity.Type == TypeEnum.Lesson)
                 {
                     text += $"{lessonIter}. {activity.Lesson.SubjectName} \n     {activity.BeginTime} - {activity.EndTime} \n\n";
                     lessonIter++;
                 }
                 else
+                {
                     text += $"     Перемена \n     {activity.Duration / 60} минут \n\n";
+                }
             }
 
             return await botClient.SendTextMessageAsync(
