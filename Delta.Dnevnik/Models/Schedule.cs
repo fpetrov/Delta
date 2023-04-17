@@ -22,6 +22,7 @@ public class Schedule
 public class Activity
 {
     [JsonPropertyName("type")]
+    [JsonConverter(typeof(TypeEnumConverter))]
     public TypeEnum Type { get; set; }
 
     [JsonPropertyName("info")]

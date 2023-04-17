@@ -9,5 +9,5 @@ public interface IMovieService
     public IAsyncEnumerable<Movie?> GetRelative(string name);
     public Task<Movie?> GetMovie(string name);
 
-    public IAsyncEnumerable<Movie?> GetRecommendations(User user);
+    public IAsyncEnumerable<Movie?> GetRecommendations(Use r user);
 }

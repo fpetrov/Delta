@@ -11,8 +11,8 @@ public record DnevnikOptions(
     TimeSpan RequestTimeout)
 {
     public static DnevnikOptions Default = new DnevnikOptions(
-        Url: "https://dnevnik.mos.ru/mobile/api/",
-        Authenticator: new TokenAuthenticator(""),
+        Url: "https://dnevnik.mos.ru/mobile/api",
+        Authenticator: new TokenAuthenticator("Token"),
         LoggerFactory: NullLoggerFactory.Instance,
         RequestTimeout: TimeSpan.FromSeconds(5));
     

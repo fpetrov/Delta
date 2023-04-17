@@ -11,9 +11,6 @@ public class TokenAuthenticator : IDnevnikAuthenticator
         if (string.IsNullOrEmpty(token))
             throw new ArgumentNullException(nameof(token), "Authenticator token is empty!");
     }
-    
-    public Task<bool> Authenticate()
-    {
-        throw new NotImplementedException();
-    }
+
+    public string Authenticate() => _token;
 }

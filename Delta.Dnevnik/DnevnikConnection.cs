@@ -1,4 +1,7 @@
-﻿using Delta.Dnevnik.Authenticators;
+﻿using System.Net.Http.Headers;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using Delta.Dnevnik.Authenticators;
 using Delta.Dnevnik.Models;
 using Microsoft.Extensions.Logging;
 
@@ -13,6 +16,8 @@ public class DnevnikConnection : IDnevnikConnection, IDisposable
     private readonly DnevnikOptions _options;
     private readonly HttpClient _httpClient;
     private readonly ILogger<DnevnikConnection> _logger;
+
+    private const string AuthenticationTokenHeader = "Auth-Token";
     
     public DnevnikConnection(DnevnikOptions options, HttpClient? httpClient = default)
     {
@@ -26,16 +31,26 @@ public class DnevnikConnection : IDnevnikConnection, IDisposable
         _logger = options.LoggerFactory.CreateLogger<DnevnikConnection>();
 
         _httpClient = httpClient ?? new HttpClient();
+        
+        _httpClient.DefaultRequestHeaders.Add(AuthenticationTokenHeader, _dnevnikAuthenticator.Authenticate());
     }
 
-    public Task<Schedule> GetScheduleAsync(DateTime dateTime)
+    public async Task<Schedule> GetScheduleAsync(DateTime dateTime)
     {
-        throw new NotImplementedException();
+        _logger.LogInformation("Fetching student schedule");
+
+        var json = await _httpClient.GetStringAsync(_options.Url + "/profile/");
+
+        return new Schedule();
     }
 
-    public Task<Student> GetStudentAsync()
+    public async Task<Student?> GetStudentAsync()
     {
-        throw new NotImplementedException();
+        _logger.LogInformation("Fetching student data");
+
+        var json = await _httpClient.GetStringAsync(_options.Url + "/profile/");
+
+        return JsonSerializer.Deserialize<Student>(json);
     }
     
     public void Dispose()

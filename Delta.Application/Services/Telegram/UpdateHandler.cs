@@ -1,3 +1,9 @@
+using Delta.Application.Entities;
+using Delta.Application.Messaging.Requests;
+using Delta.Application.Repositories.Olimpiad;
+using Delta.Application.Services.Olimpiad;
+using Delta.Application.Services.User;
+using Delta.Dnevnik.Models;
 using Microsoft.Extensions.Logging;
 using Telegram.Bot;
 using Telegram.Bot.Exceptions;
@@ -14,12 +20,16 @@ namespace Delta.Application.Services.Telegram;
 public class UpdateHandler : IUpdateHandler
 {
     private readonly ITelegramBotClient _botClient;
+    private readonly IUserService _userService;
+    private readonly IOlimpiadService _olimpiadService;
     private readonly ILogger<UpdateHandler> _logger;
 
-    public UpdateHandler(ITelegramBotClient botClient, ILogger<UpdateHandler> logger)
+    public UpdateHandler(ITelegramBotClient botClient, ILogger<UpdateHandler> logger, IUserService userService, IOlimpiadService olimpiadService)
     {
         _botClient = botClient;
         _logger = logger;
+        _userService = userService;
+        _olimpiadService = olimpiadService;
     }
 
     public async Task HandleUpdateAsync(ITelegramBotClient _, Update update, CancellationToken cancellationToken)
@@ -61,6 +71,14 @@ public class UpdateHandler : IUpdateHandler
             
             "/login" => SendLogin(_botClient, message, cancellationToken),
             
+            "/olimpiad" => CreateOlimpiad(_botClient, message, cancellationToken),
+            
+            "/schedule" => SendSchedule(_botClient, message, cancellationToken),
+            // "/homework" => SendSchedule(_botClient, message, cancellationToken),
+            //
+            // // TODO: Add support for ChatGPT via Render.com or WebProxy (Стас заплатит за прокси).
+            // "/explain" => SendLogin(_botClient, message, cancellationToken),
+            
             "/stream" => SendStream(_botClient, message, cancellationToken),
             _ => Usage(_botClient, message, cancellationToken)
         };
@@ -68,34 +86,58 @@ public class UpdateHandler : IUpdateHandler
         var sentMessage = await action;
         _logger.LogInformation("The message was sent with id: {SentMessageId}", sentMessage.MessageId);
 
+        async Task<Message> CreateOlimpiad(ITelegramBotClient botClient, Message message,
+            CancellationToken cancellationToken)
+        {
+            var request = new CreateOlimpiadRequest();
+        }
+
         async Task<Message> SendLogin(ITelegramBotClient botClient, Message message,
             CancellationToken cancellationToken)
         {
-            Task.Delay(1000);
-            
-            await botClient.SendChatActionAsync(
-                chatId: message.Chat.Id,
-                chatAction: ChatAction.Typing,
-                cancellationToken: cancellationToken);
+            var dnevnikToken = messageText.Split(' ')[1];
 
-            // Simulate longer running task
-            await Task.Delay(500, cancellationToken);
+            var request = new CreateUserRequest(message.Chat.Username!, message.Chat.Id, dnevnikToken, OlimpiadType.Math);
 
-            InlineKeyboardMarkup inlineKeyboard = new(
-                new[]
-                {
-                    // first row
-                    new []
-                    {
-                        InlineKeyboardButton.WithCallbackData("Да", "yes"),
-                        InlineKeyboardButton.WithCallbackData("Нет", "no"),
-                    },
-                });
-            
+            await _userService.Create(request, cancellationToken);
+
             return await botClient.SendTextMessageAsync(
-                chatId: message.Chat.Id, 
-                replyMarkup: inlineKeyboard,
-                text: "Отлично, тебя зовут Федор, верно?", cancellationToken: cancellationToken);
+                chatId: message.Chat.Id,
+                text: "Отлично, ты вошел в аккаунт.", cancellationToken: cancellationToken);
+        }
+        
+        async Task<Message> SendSchedule(ITelegramBotClient botClient, Message message,
+            CancellationToken cancellationToken)
+        {
+            var args = messageText.Split(' ');
+
+            var request = new GetScheduleRequest(message.Chat.Id, DateTime.Now);
+
+            if (args.Length > 1)
+                request = new GetScheduleRequest(message.Chat.Id, DateTime.Parse(args[1]));
+
+            var schedule = await _userService.GetSchedule(request, cancellationToken);
+
+            var text = $"Вот твое расписание на {request.Date.ToShortDateString()} \n\n";
+            
+            var lessonIter = 1;
+            for (var i = 0; i < schedule.Activities.Length; i++)
+            {
+                var activity = schedule.Activities[i];
+
+                if (activity.Type == TypeEnum.Lesson)
+                {
+                    text += $"{lessonIter}. {activity.Lesson.SubjectName} \n     {activity.BeginTime} - {activity.EndTime} \n\n";
+                    lessonIter++;
+                }
+                else
+                    text += $"     Перемена \n     {activity.Duration / 60} минут \n\n";
+            }
+
+            return await botClient.SendTextMessageAsync(
+                chatId: message.Chat.Id,
+                text: text,
+                cancellationToken: cancellationToken);
         }
         
         async Task<Message> SendStream(ITelegramBotClient botClient, Message message,

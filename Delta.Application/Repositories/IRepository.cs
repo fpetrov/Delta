@@ -1,6 +1,6 @@
 ﻿using System.Linq.Expressions;
 
-namespace Delta.Core.Repositories;
+namespace Delta.Application.Repositories;
 
 /// <summary>
 /// Interface for repository classes.
