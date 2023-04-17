@@ -15,6 +15,14 @@ public interface IUserRepository
     public IAsyncEnumerable<Entities.User> FindAllByType(
         OlimpiadType olimpiadType,
         CancellationToken cancellationToken = default);
+    
+    public IAsyncEnumerable<Entities.User> FindAll(
+        CancellationToken cancellationToken = default);
+    
+    public Task DeleteNotification(
+        Entities.User user,
+        Notification notification,
+        CancellationToken cancellationToken = default);
 
     public Task Update(
         Entities.User user,

@@ -8,7 +8,11 @@ public interface IOlimpiadRepository
         Entities.Olimpiad olimpiad,
         CancellationToken cancellationToken = default);
 
-    Task<IEnumerable<Entities.Olimpiad>> FindAllByType(
+    public Task<IEnumerable<Entities.Olimpiad>> FindAllByType(
         OlimpiadType type,
+        CancellationToken cancellationToken = default);
+
+    public Task Delete(
+        int id,
         CancellationToken cancellationToken = default);
 }

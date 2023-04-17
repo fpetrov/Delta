@@ -74,7 +74,10 @@ public class UpdateHandler : IUpdateHandler
             "/olimpiad" => CreateOlimpiad(_botClient, message, cancellationToken),
             
             "/schedule" => SendSchedule(_botClient, message, cancellationToken),
-            // "/homework" => SendSchedule(_botClient, message, cancellationToken),
+            "/homework" => SendHomework(_botClient, message, cancellationToken),
+            "/notification" => CreateNotification(_botClient, message, cancellationToken),
+            "/notifications" => SendNotifications(_botClient, message, cancellationToken),
+            
             //
             // // TODO: Add support for ChatGPT via Render.com or WebProxy (Стас заплатит за прокси).
             // "/explain" => SendLogin(_botClient, message, cancellationToken),
@@ -86,6 +89,51 @@ public class UpdateHandler : IUpdateHandler
         var sentMessage = await action;
         _logger.LogInformation("The message was sent with id: {SentMessageId}", sentMessage.MessageId);
 
+        async Task<Message> SendHomework(ITelegramBotClient botClient, Message message,
+            CancellationToken cancellationToken)
+        {
+            var args = messageText.Split(' ');
+
+            var request = new GetHomeworkRequest(message.Chat.Id, DateTime.Now.AddDays(1));
+
+            if (args.Length > 1)
+                request = new GetHomeworkRequest(message.Chat.Id, DateTime.Parse(args[1]));
+
+            var homeworks = _userService.GetHomework(request, cancellationToken);
+
+            var text = $"Вот твое домашнее задание на {request.Date.ToShortDateString()} \n\n";
+            
+            await foreach (var homework in homeworks)
+            {
+                text += $"***{homework.Subject}***\n`{homework.Description}`\n\n";
+            }
+
+            return await botClient.SendTextMessageAsync(
+                chatId: message.Chat.Id,
+                text: text,
+                ParseMode.Markdown,
+                cancellationToken: cancellationToken);
+        }
+        
+        async Task<Message> SendNotifications(ITelegramBotClient botClient, Message message,
+            CancellationToken cancellationToken)
+        {
+            var notifications = _userService.FindNotifications(message.Chat.Id, cancellationToken);
+
+            var text = "Твои напоминания \n\n";
+            
+            await foreach (var notification in notifications)
+            {
+                text += $"***{notification.Name}***\n`{notification.Descriptions}`\n{notification.Expires.ToShortDateString()}\n\n";
+            }
+
+            return await botClient.SendTextMessageAsync(
+                chatId: message.Chat.Id,
+                text: text,
+                ParseMode.Markdown,
+                cancellationToken: cancellationToken);
+        }
+
         async Task<Message> CreateOlimpiad(ITelegramBotClient botClient, Message message,
             CancellationToken cancellationToken)
         {
@@ -96,7 +144,7 @@ public class UpdateHandler : IUpdateHandler
                     chatId: message.Chat.Id,
                     text: "Вы ввели неправильный тип олимпиады", cancellationToken: cancellationToken);
             
-            var request = new CreateOlimpiadRequest(args[1], args[2], type);
+            var request = new CreateOlimpiadRequest(args[1], args[2], type, DateTime.Parse(args[4]).ToUniversalTime());
 
             await _olimpiadService.Create(request, cancellationToken);
             
@@ -104,13 +152,38 @@ public class UpdateHandler : IUpdateHandler
                 chatId: message.Chat.Id,
                 text: "Олимпиада сохранена.", cancellationToken: cancellationToken);
         }
+        
+        async Task<Message> CreateNotification(ITelegramBotClient botClient, Message message,
+            CancellationToken cancellationToken)
+        {
+            var args = messageText.Split(' ');
+
+            var request = new AddNotificationRequest(message.Chat.Id, new Notification
+            {
+                Name = args[1],
+                Descriptions = args[2],
+                Expires = DateTime.Parse(args[3]).ToUniversalTime()
+            });
+
+            await _userService.AddNotification(request, cancellationToken);
+            
+            return await botClient.SendTextMessageAsync(
+                chatId: message.Chat.Id,
+                text: "Напоминание добавлено.", cancellationToken: cancellationToken);
+        }
 
         async Task<Message> SendLogin(ITelegramBotClient botClient, Message message,
             CancellationToken cancellationToken)
         {
-            var dnevnikToken = messageText.Split(' ')[1];
+            var args = messageText.Split(' ');
+            var dnevnikToken = args[1];
+            
+            if (!Enum.TryParse<OlimpiadType>(args[2], out var type))
+                return await botClient.SendTextMessageAsync(
+                    chatId: message.Chat.Id,
+                    text: "Вы ввели неправильный тип направления", cancellationToken: cancellationToken);
 
-            var request = new CreateUserRequest(message.Chat.Username!, message.Chat.Id, dnevnikToken, OlimpiadType.Math);
+            var request = new CreateUserRequest(message.Chat.Username!, message.Chat.Id, dnevnikToken, type);
 
             await _userService.Create(request, cancellationToken);
 

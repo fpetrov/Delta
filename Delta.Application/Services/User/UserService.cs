@@ -38,6 +38,17 @@ public class UserService : IUserService
 
         return await _dnevnikConnection.GetScheduleAsync(user.DnevnikToken, user.ProfileId, request.Date.ToString("yyyy-MM-dd"));
     }
+    
+    public async IAsyncEnumerable<Homework> GetHomework(GetHomeworkRequest request, CancellationToken cancellationToken = default)
+    {
+        var schedule = await GetSchedule(new GetScheduleRequest(request.TelegramId, request.Date), cancellationToken);
+
+        foreach (var activity in schedule.Activities)
+        {
+            if (activity.Type == TypeEnum.Lesson)
+                yield return new Homework(activity.Lesson.SubjectName, activity.Lesson.Homework);
+        }
+    }
 
     public async Task AddNotification(AddNotificationRequest request, CancellationToken cancellationToken = default)
     {
@@ -53,5 +64,48 @@ public class UserService : IUserService
         CancellationToken cancellationToken = default)
     {
         return _repository.FindAllByType(olimpiadType, cancellationToken);
+    }
+    
+    public async IAsyncEnumerable<Notification> FindIncomingNotifications(Entities.User user,
+        CancellationToken cancellationToken = default)
+    {
+        foreach (var notification in user.Notifications)
+        {
+            var subtraction = notification.Expires.Subtract(DateTime.Now);
+
+            if (subtraction <= TimeSpan.FromDays(1))
+            {
+                yield return notification;
+            }
+        }
+    }
+
+    public async IAsyncEnumerable<Notification> FindNotifications(long telegramId,
+        CancellationToken cancellationToken = default)
+    {
+        var user = await _repository.FindByTelegramId(telegramId, cancellationToken);
+
+        foreach (var notification in user.Notifications)
+        {
+            yield return notification;
+        }
+    }
+    
+    public async Task RemoveNotifications(Entities.User user,
+        IAsyncEnumerable<Notification> notifications,
+        CancellationToken cancellationToken = default)
+    {
+        await foreach (var notification in notifications)
+        {
+            user.Notifications.Remove(notification);
+        }
+
+        await _repository.Update(user, cancellationToken);
+    }
+    
+    public IAsyncEnumerable<Entities.User> FindAll(
+        CancellationToken cancellationToken = default)
+    {
+        return _repository.FindAll(cancellationToken);
     }
 }

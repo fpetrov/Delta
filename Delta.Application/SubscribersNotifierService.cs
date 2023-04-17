@@ -1,6 +1,11 @@
-﻿using Delta.Dnevnik;
+﻿using Delta.Application.Entities;
+using Delta.Application.Services.Olimpiad;
+using Delta.Application.Services.User;
+using Delta.Dnevnik;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Telegram.Bot;
+using Telegram.Bot.Types.Enums;
 
 namespace Delta.Application;
 
@@ -10,13 +15,19 @@ namespace Delta.Application;
 public class SubscribersNotifierService : BackgroundService
 {
     private readonly ILogger<SubscribersNotifierService> _logger;
-    private readonly IDnevnikPlainConnection _dnevnikConnection;
+    private readonly IUserService _userService;
+    private readonly IOlimpiadService _olimpiadService;
+    private readonly ITelegramBotClient _botClient;
     private readonly PeriodicTimer _periodicTimer;
 
-    public SubscribersNotifierService(ILogger<SubscribersNotifierService> logger, IDnevnikPlainConnection dnevnikConnection)
+    public SubscribersNotifierService(ILogger<SubscribersNotifierService> logger,
+        IDnevnikPlainConnection dnevnikConnection, IOlimpiadService olimpiadService, IUserService userService,
+        ITelegramBotClient botClient)
     {
         _logger = logger;
-        _dnevnikConnection = dnevnikConnection;
+        _olimpiadService = olimpiadService;
+        _userService = userService;
+        _botClient = botClient;
         _periodicTimer = new PeriodicTimer(TimeSpan.FromSeconds(10));
     }
 
@@ -26,9 +37,41 @@ public class SubscribersNotifierService : BackgroundService
         {
             _logger.LogInformation("Tick");
 
-            //var student = await _dnevnikConnection.GetStudentAsync("eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIyNzI2NDQxIiwiYXVkIjoiMjoxIiwibmJmIjoxNjgxNjU3MjY0LCJtc2giOiI3YTEyZGRiYS1lMzk1LTQ5OTEtOTNkNi1iNzhmNGZlOWY4ZDYiLCJhdGgiOiJzdWRpciIsImlzcyI6Imh0dHBzOlwvXC9zY2hvb2wubW9zLnJ1IiwicmxzIjoiezE6WzE4MzoxNjpbXSwzMDo0OltdLDQwOjE6W10sMjA6MjpbXV19IiwiZXhwIjoxNjgyNTIxMjY0LCJpYXQiOjE2ODE2NTcyNjQsImp0aSI6IjJiOTM1Njg0LTczMWEtNGI1ZC05MzU2LTg0NzMxYWRiNWQ1MSIsInNzbyI6ImY4ZGE0MWExLTM0ZTAtNGFmMi1hMzdmLTdhNTE0MmUyZDQxNCJ9.i11vyeBzw1zsA9ZHF190nGMAsdX0KYk10vp2c1pCYLfmtAzcERzyxu5kBDzoyRwYfqTrqDfQ3PTNQhktWFMjjU_UnXoXNw57QmJCCOEO8Tu-bUYCvimJdgNFpnmtbw_bWkggP5b-LcxrVGH-iQr-vjkwz_DN6Os2v6EW6v7xnStGXvrmJsO4kczJApFFHgYLWx_H8kN94TGIlaQZ4VKSzhzcQcfUkGChqiS4KQtR8h1lS3C44d_90aCVLZiBJUdu1_Wein8-pOom25auT6WYgI5he02oqxEycbV92h3yh1u_2Xwqv_iSxpcdmdtHeVY2HIL2diHHJKCCCLMqoANNtg");
-            
-            //_logger.LogInformation(student.Profile.FirstName);
+            var users = _userService.FindAll(cancellationToken);
+
+            await foreach (var user in users)
+            {
+                var incomingMathOlimpiads = _olimpiadService.FindIncoming(user.OlimpiadType, cancellationToken);
+                
+                await foreach (var olimpiad in incomingMathOlimpiads)
+                {
+                    var text =
+                        $"Олимпиада ***{olimpiad.Name}*** пройдет {olimpiad.Expires.ToShortDateString()}. Сайт олимпиады: {olimpiad.Url}";
+
+                    await _botClient.SendTextMessageAsync(
+                        chatId: user.TelegramId,
+                        text: text,
+                        ParseMode.Markdown,
+                        cancellationToken: cancellationToken);
+                }
+
+
+                var incomingNotifications = _userService.FindIncomingNotifications(user, cancellationToken);
+                
+                await foreach (var notification in incomingNotifications)
+                {
+                    var text =
+                        $"Напоминание ***{notification.Name}*** на {notification.Expires.ToShortDateString()}. \n `{notification.Descriptions}`";
+
+                    await _botClient.SendTextMessageAsync(
+                        chatId: user.TelegramId,
+                        text: text,
+                        ParseMode.Markdown,
+                        cancellationToken: cancellationToken);
+                }
+
+                await _userService.RemoveNotifications(user, incomingNotifications, cancellationToken);
+            }
         }
     }
 }

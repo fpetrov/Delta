@@ -30,9 +30,28 @@ public class UserRepository : RepositoryBase<Entities.User, DatabaseContext>, IU
                 yield return user;
         }
     }
+    
+    public async IAsyncEnumerable<Entities.User> FindAll(
+        CancellationToken cancellationToken = default)
+    {
+        foreach (var user in await GetAllAsync(cancellationToken))
+        {
+            yield return user;
+        }
+    }
 
     public Task Update(Entities.User user, CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        return UpdateAsync(user, cancellationToken);
+    }
+
+    public Task DeleteNotification(
+        Entities.User user,
+        Notification notification,
+        CancellationToken cancellationToken = default)
+    {
+        user.Notifications.Remove(notification);
+
+        return Update(user, cancellationToken);
     }
 }

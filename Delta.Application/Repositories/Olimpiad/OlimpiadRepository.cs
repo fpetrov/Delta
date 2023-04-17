@@ -14,6 +14,13 @@ public class OlimpiadRepository : RepositoryBase<Entities.Olimpiad, DatabaseCont
     {
         return AddAsync(olimpiad, cancellationToken: cancellationToken);
     }
+    
+    public async Task Delete(int id, CancellationToken cancellationToken = default)
+    {
+        var olimpiad = await GetAsync(id, cancellationToken);
+        
+        await RemoveAsync(olimpiad, cancellationToken: cancellationToken);
+    }
 
     public Task<IEnumerable<Entities.Olimpiad>> FindAllByType(OlimpiadType type, CancellationToken cancellationToken = default)
     {

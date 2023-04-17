@@ -35,6 +35,8 @@ public class OlimpiadService : IOlimpiadService
             {
                 yield return olimpiad;
             }
+
+            await _repository.Delete(olimpiad.Id, cancellationToken);
         }
     }
 }
