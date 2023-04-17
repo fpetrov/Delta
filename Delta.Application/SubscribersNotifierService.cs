@@ -1,5 +1,4 @@
-﻿using Delta.Application.Entities;
-using Delta.Application.Services.Olimpiad;
+﻿using Delta.Application.Services.Olimpiad;
 using Delta.Application.Services.User;
 using Delta.Dnevnik;
 using Microsoft.Extensions.Hosting;
@@ -35,8 +34,6 @@ public class SubscribersNotifierService : BackgroundService
     {
         while (await _periodicTimer.WaitForNextTickAsync(cancellationToken))
         {
-            _logger.LogInformation("Tick");
-
             var users = _userService.FindAll(cancellationToken);
 
             await foreach (var user in users)

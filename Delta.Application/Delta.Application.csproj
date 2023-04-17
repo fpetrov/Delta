@@ -34,8 +34,4 @@
     <ItemGroup>
       <ProjectReference Include="..\Delta.Dnevnik\Delta.Dnevnik.csproj" />
     </ItemGroup>
-
-    <ItemGroup>
-      <Folder Include="Services\ChatGPT" />
-    </ItemGroup>
 </Project>
