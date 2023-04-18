@@ -43,7 +43,7 @@ public class SubscribersNotifierService : BackgroundService
                 await foreach (var olimpiad in incomingMathOlimpiads)
                 {
                     var text =
-                        $"Олимпиада ***{olimpiad.Name}*** пройдет {olimpiad.Expires.ToShortDateString()}. Сайт олимпиады: {olimpiad.Url}";
+                        $"Олимпиада ***{olimpiad.Name}*** пройдет {olimpiad.Expires.AddDays(1).ToShortDateString()}. Сайт олимпиады: {olimpiad.Url}";
 
                     await _botClient.SendTextMessageAsync(
                         chatId: user.TelegramId,

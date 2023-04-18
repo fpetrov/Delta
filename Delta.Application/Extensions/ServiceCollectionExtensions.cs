@@ -3,6 +3,7 @@ using Delta.Application.Repositories.User;
 using Delta.Application.Services.ChatGPT;
 using Delta.Application.Services.Olimpiad;
 using Delta.Application.Services.User;
+using Delta.Application.Services.YouTube;
 using Delta.Dnevnik;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -30,6 +31,14 @@ public static class ServiceCollectionExtensions
     {
         collection.Configure(options);
         collection.AddHttpClient<IChatGptService, ChatGptService>();
+
+        return collection;
+    }
+    
+    public static IServiceCollection AddYouTubeService(this IServiceCollection collection, Action<YouTubeOptions> options)
+    {
+        collection.Configure(options);
+        collection.AddHttpClient<IYouTubeService, YouTubeService>();
 
         return collection;
     }

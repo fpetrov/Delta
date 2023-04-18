@@ -4,6 +4,7 @@ using Delta.Application.Repositories.Olimpiad;
 using Delta.Application.Services.ChatGPT;
 using Delta.Application.Services.Olimpiad;
 using Delta.Application.Services.User;
+using Delta.Application.Services.YouTube;
 using Delta.Dnevnik.Models;
 using Microsoft.Extensions.Logging;
 using Telegram.Bot;
@@ -24,15 +25,17 @@ public class UpdateHandler : IUpdateHandler
     private readonly IUserService _userService;
     private readonly IOlimpiadService _olimpiadService;
     private readonly IChatGptService _chatGptService;
+    private readonly IYouTubeService _youTubeService;
     private readonly ILogger<UpdateHandler> _logger;
 
-    public UpdateHandler(ITelegramBotClient botClient, ILogger<UpdateHandler> logger, IUserService userService, IOlimpiadService olimpiadService, IChatGptService chatGptService)
+    public UpdateHandler(ITelegramBotClient botClient, ILogger<UpdateHandler> logger, IUserService userService, IOlimpiadService olimpiadService, IChatGptService chatGptService, IYouTubeService youTubeService)
     {
         _botClient = botClient;
         _logger = logger;
         _userService = userService;
         _olimpiadService = olimpiadService;
         _chatGptService = chatGptService;
+        _youTubeService = youTubeService;
     }
 
     public async Task HandleUpdateAsync(ITelegramBotClient _, Update update, CancellationToken cancellationToken)
@@ -69,6 +72,7 @@ public class UpdateHandler : IUpdateHandler
             "/homework" => SendHomework(_botClient, message, cancellationToken),
             "/notification" => CreateNotification(_botClient, message, cancellationToken),
             "/notifications" => SendNotifications(_botClient, message, cancellationToken),
+            "/youtube" => SendYouTubeVideos(_botClient, message, cancellationToken),
 
             "/stream" => SendStream(_botClient, message, cancellationToken),
             "/start" => Usage(_botClient, message, cancellationToken),
@@ -78,6 +82,27 @@ public class UpdateHandler : IUpdateHandler
         var sentMessage = await action;
         _logger.LogInformation("The message was sent with id: {SentMessageId}", sentMessage.MessageId);
 
+        async Task<Message> SendYouTubeVideos(ITelegramBotClient botClient, Message message,
+            CancellationToken cancellationToken)
+        {
+            var query = string.Join(' ', messageText.Split(' ')[1..]);
+            
+            var response = await _youTubeService.Search(query);
+
+            foreach (var video in response)
+            {
+                await botClient.SendTextMessageAsync(
+                    chatId: message.Chat.Id,
+                    text: $"{video.Name}\n{video.Url}",
+                    cancellationToken: cancellationToken);
+            }
+            
+            return await botClient.SendTextMessageAsync(
+                chatId: message.Chat.Id,
+                text: "Вот список видео по твоему запросу",
+                cancellationToken: cancellationToken);
+        }
+        
         async Task<Message> Explain(ITelegramBotClient botClient, Message message,
             CancellationToken cancellationToken)
         {

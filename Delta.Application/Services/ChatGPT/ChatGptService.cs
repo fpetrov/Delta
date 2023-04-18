@@ -21,7 +21,7 @@ public class ChatGptService : IChatGptService
 
     public async Task<string> Ask(string question)
     {
-        var response = await _httpClient.PostAsJsonAsync<Request>("/ask/", new Request
+        var response = await _httpClient.PostAsJsonAsync("/ask/", new Request
         {
             Prompt = question
         });

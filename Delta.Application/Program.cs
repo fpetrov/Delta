@@ -32,6 +32,11 @@ builder.Services.AddChatGptService(options =>
     options.Address = "https://delta-gpt.onrender.com/";
 });
 
+builder.Services.AddYouTubeService(options =>
+{
+    options.Address = "https://delta-gpt.onrender.com/";
+});
+
 var connectionString = builder.Configuration.GetConnectionString("SupabaseConnectionString");
 
 builder.Services.AddDbContext<DatabaseContext>(options => options.UseNpgsql(connectionString));
